@@ -1,32 +1,47 @@
 server:
-    port: 8080
+  port: 9000
 
 spring:
-    application:
-        name: api-gateway
-    cloud:
-        gateway:
-            discovery:
-                locator:
-                    enabled: true
-            routes:
-              - id: client
-                uri: lb://CLIENT
-                predicates:
-                    - Path=/client/**
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      routes:
+        - id: client
+          uri: lb://CLIENT/status
+          predicates:
+            - Path=/status/**
+  loadbalancer:
+    config:
+      instances:
+        backend:
+          - uri: lb://CLIENT
+    retry:
+      enabled: true
+  inetutils:
+    preferred-networks:
+      - 127.0.0.1
+
 eureka:
-    client:
-        service-url:
-            defaultZone: http://localhost:8761/eureka/
-        register-with-eureka: true
-        fetch-registry: true
+  instance:
+    hostname: 127.0.0.1
+    prefer-ip-address: true
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
 
 management:
-    endpoints:
-        web:
-            exposure:
-                include: "*"
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
 logging:
-    level:
-        org.springframework.cloud.gateway: DEBUG
-        org.springframework.web: DEBUG
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.web: DEBUG

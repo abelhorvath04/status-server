@@ -5,10 +5,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/hello")
-public class HelloController {
+@RequestMapping("/status")
+public class StatusController {
     @GetMapping
     public String hello() {
-        return "Hello from the client service!";
+        return "Hello from the status service!";
     }
 }
