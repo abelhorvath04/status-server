@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  eureka-server:
+    image: eureka-server:latest
+    build:
+      context: ./eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - status-server-network
+
+  api-gateway:
+    image: api-gateway:latest
+    build:
+      context: ./api-gateway
+    depends_on:
+      - eureka-server
+    ports:
+      - "9000:9000"
+    networks:
+      - status-server-network
+
+  status-service:
+    image: status-service:latest
+    build:
+      context: ./status-service
+    depends_on:
+      - eureka-server
+    ports:
+      - "9001:9001"
+    networks:
+      - status-server-network
+
+  client:
+    image: client:latest
+    build:
+      context: ./client
+    depends_on:
+      - api-gateway
+    networks:
+      - status-server-network
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "4200:80"
+    networks:
+      - status-server-network
+    depends_on:
+      client:
+        condition: service_started
+    environment:
+      - NODE_ENV=production
+
+networks:
+  status-server-network:
+    driver: bridge

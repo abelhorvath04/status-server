@@ -14,6 +14,17 @@ spring:
           uri: lb://CLIENT/status
           predicates:
             - Path=/status/**
+        - id: status-service
+          uri: lb://STATUS-SERVICE
+          predicates:
+            - Path=/status-websocket/**
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:8080"
+            allowedMethods: GET, POST, PUT, DELETE, OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
   loadbalancer:
     config:
       instances:
@@ -31,7 +42,7 @@ eureka:
     prefer-ip-address: true
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka
     register-with-eureka: true
     fetch-registry: true
 

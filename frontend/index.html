@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Status-Server Dashboard</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+        crossorigin="anonymous">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Node Status Monitor</h1>
+
+        <div>
+            <button id="connect" class="btn btn-success">Connect</button>
+            <button id="disconnect" class="btn btn-danger" disabled>Disconnect</button>
+        </div>
+
+        <br>
+
+        <form class="form-inline">
+            <input id="name" type="text" placeholder="Node ID" class="form-control">
+            <button id="send-up" class="btn btn-success" type="button">Send UP</button>
+            <button id="send-down" class="btn btn-warning" type="button" disabled>Send DOWN</button>
+        </form>
+
+        <div id="conversation" style="display:none;">
+            <h3>Status updates</h3>
+            <ul id="status-list"></ul>
+        </div>
+    </div>
+
+    <!-- Scripts at end of body -->
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@7.0.0/bundles/stomp.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
