@@ -6,4 +6,4 @@ COPY target/client-0.0.1-SNAPSHOT.jar app.jar
 
 RUN chmod +x /wait-for-it.sh
 
-ENTRYPOINT ["./wait-for-it.sh", "api-gateway:9000", "--", "java", "-jar", "app.jar"]
+ENTRYPOINT ["/wait-for-it.sh", "eureka-server:8761", "--", "java", "-jar", "app.jar"]

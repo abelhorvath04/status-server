@@ -1,5 +1,5 @@
 const stompClient = new StompJs.Client({
-    brokerURL: 'ws://localhost:9000/status-websocket',
+    brokerURL: 'ws://api-gateway:9000/status-websocket',
     reconnectDelay: 5000
 });
 
