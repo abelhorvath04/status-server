@@ -22,37 +22,41 @@ public class ClientNode {
     @Bean
     public ApplicationRunner run() {
         return args -> {
-            WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
-            client.setMessageConverter(new MappingJackson2MessageConverter());
+            new Thread(() -> {
+                try {
+                    WebSocketStompClient client = new WebSocketStompClient(new StandardWebSocketClient());
+                    client.setMessageConverter(new MappingJackson2MessageConverter());
 
-            var sessionFuture = client.connectAsync("ws://localhost:9000/status-websocket", new StompSessionHandlerAdapter() {
-                @Override
-                public void afterConnected(StompSession session, StompHeaders connectedHeaders) {
-                    session.subscribe("/topic/status", new StompFrameHandler() {
+                    var sessionFuture = client.connectAsync("ws://api-gateway:9000/status-websocket", new StompSessionHandlerAdapter() {
                         @Override
-                        public Type getPayloadType(StompHeaders headers) {
-                            return StatusMessage.class;
-                        }
+                        public void afterConnected(StompSession session, StompHeaders connectedHeaders) {
+                            session.subscribe("/topic/status", new StompFrameHandler() {
+                                @Override
+                                public Type getPayloadType(StompHeaders headers) {
+                                    return StatusMessage.class;
+                                }
 
-                        @Override
-                        public void handleFrame(StompHeaders headers, Object payload) {
-                            StatusMessage status = (StatusMessage) payload;
-                            System.out.println("[" + nodeId + "] RECEIVED: " + status.getNodeId() + " is " + status.getStatus());
+                                @Override
+                                public void handleFrame(StompHeaders headers, Object payload) {
+                                    StatusMessage status = (StatusMessage) payload;
+                                    System.out.println("[" + nodeId + "] RECEIVED: " + status.getNodeId() + " is " + status.getStatus());
+                                }
+                            });
+
+                            session.send("/app/status", new StatusMessage(nodeId, "UP"));
+
+                            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                                session.send("/app/status", new StatusMessage(nodeId, "DOWN"));
+                            }));
                         }
                     });
 
-                    session.send("/app/status", new StatusMessage(nodeId, "UP"));
-
-                    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                        session.send("/app/status", new StatusMessage(nodeId, "DOWN"));
-                    }));
+                    sessionFuture.get();
+                } catch (Exception e) {
+                    System.err.println(e.getMessage());
                 }
-            });
-
-            StompSession session = sessionFuture.get();
-
-            new java.util.concurrent.CountDownLatch(1).await();
-
+            }).start();
         };
     }
 }
+

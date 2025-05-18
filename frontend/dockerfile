@@ -1,3 +1,6 @@
 FROM nginx:alpine
-COPY ./frontend /usr/share/nginx/html
+WORKDIR /app
+
+COPY . /usr/share/nginx/html
+
 EXPOSE 80

@@ -21,7 +21,7 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "http://localhost:8080"
+            allowedOrigins: "http://localhost:4200"
             allowedMethods: GET, POST, PUT, DELETE, OPTIONS
             allowedHeaders: "*"
             allowCredentials: true
@@ -32,17 +32,14 @@ spring:
           - uri: lb://CLIENT
     retry:
       enabled: true
-  inetutils:
-    preferred-networks:
-      - 127.0.0.1
 
 eureka:
   instance:
-    hostname: 127.0.0.1
-    prefer-ip-address: true
+    hostname: api-gateway
+    prefer-ip-address: false
   client:
     service-url:
-      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka
+      defaultZone: http://eureka-server:8761/eureka
     register-with-eureka: true
     fetch-registry: true
 
