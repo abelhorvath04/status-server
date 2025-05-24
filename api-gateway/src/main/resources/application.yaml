@@ -6,9 +6,9 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
+    discovery:
+      locator:
+        enabled: true
       routes:
         - id: client
           uri: lb://CLIENT/status
@@ -18,38 +18,35 @@ spring:
           uri: lb://STATUS-SERVICE
           predicates:
             - Path=/status-websocket/**
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOrigins: "http://localhost:4200"
-            allowedMethods: GET, POST, PUT, DELETE, OPTIONS
-            allowedHeaders: "*"
-            allowCredentials: true
-  loadbalancer:
-    config:
-      instances:
-        backend:
-          - uri: lb://CLIENT
-    retry:
-      enabled: true
-
+    globalcors:
+      cors-configurations:
+        "[/**]":
+          allowedOrigins: "*"
+          allowedMethods: GET, POST, PUT, DELETE, OPTIONS
+          allowedHeaders: "*"
+          allowCredentials: true
+    loadbalancer:
+      config:
+        instances:
+          backend:
+            - uri: lb://STATUS-SERVICE
+      retry:
+        enabled: true
+    inetutils:
+      preferred-networks:
+        - 127.0.0.1
 eureka:
-  instance:
-    hostname: api-gateway
-    prefer-ip-address: false
   client:
-    service-url:
-      defaultZone: http://eureka-server:8761/eureka
-    register-with-eureka: true
-    fetch-registry: true
+    instance:
+      hostname: eureka-server
+    serviceUrl:
+      defaultZone: http://eureka-server:8761/eureka/
+      register-with-eureka: true
+      fetch-registry: true
+    registry-fetch-interval-seconds: 30
 
 management:
   endpoints:
     web:
       exposure:
         include: "*"
-
-logging:
-  level:
-    org.springframework.cloud.gateway: DEBUG
-    org.springframework.web: DEBUG

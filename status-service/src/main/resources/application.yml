@@ -1,13 +1,17 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: status-service
-server:
-  port: 9001
 
 eureka:
-  instance:
-    hostname: status-service
-    prefer-ip-address: false
   client:
-    service-url:
-      defaultZone: http://eureka-server:8761/eureka
+    instance:
+      hostname: eureka-server
+    serviceUrl:
+      defaultZone: http://eureka-server:8761/eureka/
+      register-with-eureka: true
+      fetch-registry: true
+# websocket:
+#   endpoint: /ws

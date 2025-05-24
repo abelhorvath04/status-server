@@ -1,54 +1,47 @@
+---
 services:
   eureka-server:
-    image: eureka-server:latest
     build:
       context: ./eureka-server
     ports:
       - "8761:8761"
     networks:
-      - status-server-network
+      - spring-cloud-net
 
   api-gateway:
-    image: api-gateway:latest
     build:
       context: ./api-gateway
+    ports:
+      - "8080:8080"
     depends_on:
       - eureka-server
-    ports:
-      - "9000:9000"
+      - status-service
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
     networks:
-      - status-server-network
+      - spring-cloud-net
 
   status-service:
-    image: status-service:latest
     build:
       context: ./status-service
-    depends_on:
-      - eureka-server
     ports:
-      - "9001:9001"
-    networks:
-      - status-server-network
-
-  client:
-    image: client:latest
-    build:
-      context: ./client
+      - "8081:8081"
     depends_on:
       - eureka-server
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
     networks:
-      - status-server-network
-
+      - spring-cloud-net
   frontend:
     build:
       context: ./frontend
     ports:
       - "4200:80"
-    networks:
-      - status-server-network
     depends_on:
       - api-gateway
+    networks:
+      - spring-cloud-net
 
 networks:
-  status-server-network:
+  spring-cloud-net:
     driver: bridge

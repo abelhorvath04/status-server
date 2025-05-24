@@ -1,5 +1,5 @@
 const stompClient = new StompJs.Client({
-    brokerURL: 'ws://api-gateway:9000/status-websocket',
+    brokerURL: 'ws://localhost:9000/status-websocket',
     reconnectDelay: 5000
 });
 
@@ -51,12 +51,12 @@ function sendMsg() {
 
 function showStatus(nodeId, status) {
     let existing = $(`#status-${nodeId}`);
-    
+
     if (existing.length === 0) {
         const item = $("<li>")
             .attr("id", `status-${nodeId}`)
             .text(`${nodeId} is ${status}`);
-        
+
         if (status === 'DOWN') item.addClass("down");
         $("#status-list").append(item);
     } else {
