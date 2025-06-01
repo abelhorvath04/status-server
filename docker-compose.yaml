@@ -3,6 +3,8 @@ services:
     image: eureka-server:latest
     build:
       context: ./eureka-server
+    environment:
+      - EUREKA_SERVER_NAME=eureka-server
     ports:
       - "8761:8761"
     networks:
@@ -19,12 +21,31 @@ services:
     networks:
       - status-server-network
 
-  status-service:
+  status-service-1:
     image: status-service:latest
     build:
       context: ./status-service
     depends_on:
       - eureka-server
+    environment:
+      - SERVER_PORT=9001
+      - STATUS_SERVICE_NAME=status-service
+      - EUREKA_SERVER_NAME=eureka-server
+    ports:
+      - "9001:9001"
+    networks:
+      - status-server-network
+
+  status-service-2:
+    image: status-service:latest
+    build:
+      context: ./status-service
+    depends_on:
+      - eureka-server
+    environment:
+      - SERVER_PORT=9002
+      - STATUS_SERVICE_NAME=status-service
+      - EUREKA_SERVER_NAME=eureka-server
     ports:
       - "9001:9001"
     networks:
@@ -36,6 +57,8 @@ services:
       context: ./client
     depends_on:
       - eureka-server
+    environment:
+      - EUREKA_SERVER_NAME=eureka-server
     networks:
       - status-server-network
 

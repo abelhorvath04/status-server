@@ -2,12 +2,15 @@ spring:
   application:
     name: status-service
 server:
-  port: 9001
-
+  port: ${SERVER_PORT:9001}
 eureka:
   instance:
-    hostname: status-service
+    hostname: ${STATUS_SERVICE_NAME:localhost}
     prefer-ip-address: false
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka
+      defaultZone: http://${EUREKA_SERVER_NAME:localhost}:8761/eureka
+status:
+  peers:
+    - http://${STATUS_SERVICE_NAME:localhost}:9001
+    - http://${STATUS_SERVICE_NAME:localhost}:9002
