@@ -26,12 +26,22 @@ public class WebSocketStatusController {
 
     @MessageMapping("/status")
     public void handleStatus(StatusRequest req) {
+        Status old = statusService.findByUsername(req.getUsername());
+
         Status status = statusService.saveOrUpdate(req);
+
+        if (old == null) {
+            System.out.printf("[WS CREATE] %s -> '%s'%n", status.getUsername(), status.getStatustext());
+        } else {
+            System.out.printf("[WS UPDATE] %s: '%s' -> '%s'%n",
+                    old.getUsername(), old.getStatustext(), status.getStatustext());
+        }
 
         statusProperties.getPeers().forEach(peer -> {
             if (!peer.contains(currentPort)) {
                 try {
                     new RestTemplate().postForObject(peer + "/status/replicate", status, Void.class);
+                    System.out.println("[WS -> PEER] Replicated to " + peer);
                 } catch (Exception e) {
                     System.err.println("Failed to replicate to peer " + peer + ": " + e.getMessage());
                 }
@@ -43,6 +53,7 @@ public class WebSocketStatusController {
 
     @MessageMapping("/request-statuses")
     public void sendStatusesToClient(SimpMessageHeaderAccessor accessor) {
+        System.out.println("[WS] Client requested all statuses");
         statusService.all().forEach(status ->
                 messagingTemplate.convertAndSend("/topic/init-status", status)
         );

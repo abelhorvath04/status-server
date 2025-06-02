@@ -29,6 +29,7 @@ public class StatusController {
     @PostMapping
     public ResponseEntity<Void> create(@RequestBody StatusRequest statusRequest) {
         Status status = statusService.saveOrUpdate(statusRequest);
+        System.out.println("[CREATE] Received via REST: " + status.getUsername() + ", " + status.getStatustext() + ", " + status.getTimestamp());
         replicateToPeers(status);
         ws.broadcastStatus(status);
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -36,13 +37,20 @@ public class StatusController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Void> update(@PathVariable Long id, @RequestBody StatusRequest statusRequest) {
-        if (!statusService.getStore().containsKey(id)) {
+        Status oldStatus = statusService.get(id);
+        if (oldStatus == null) {
             return ResponseEntity.notFound().build();
         }
 
-        Status status = statusService.update(id, statusRequest);
-        replicateToPeers(status);
-        ws.broadcastStatus(status);
+        Status newStatus = statusService.update(id, statusRequest);
+        System.out.printf("[UPDATE] ID: %d, %s: '%s' -> '%s'%n",
+                id,
+                oldStatus.getUsername(),
+                oldStatus.getStatustext(),
+                newStatus.getStatustext());
+
+        replicateToPeers(newStatus);
+        ws.broadcastStatus(newStatus);
         return ResponseEntity.ok().build();
     }
 
@@ -55,6 +63,7 @@ public class StatusController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         statusService.delete(id);
+        System.out.println("[DELETE] ID: " + id + " deleted");
         sendDeleteToPeers(id);
         ws.broadcastDelete(id);
         return ResponseEntity.ok().build();
@@ -68,12 +77,14 @@ public class StatusController {
     @PostMapping("/replicate")
     public ResponseEntity<Void> replicate(@RequestBody Status status) {
         statusService.replicate(status);
+        System.out.println("[REPLICATE] Received from peer: " + status.getUsername() + ", " + status.getStatustext() + ", " + status.getTimestamp());
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/replicate/{id}")
     public ResponseEntity<Void> replicateDelete(@PathVariable Long id) {
         statusService.replicateDelete(id);
+        System.out.println("[REPLICATE DELETE] ID: " + id + " removed via peer");
         return ResponseEntity.ok().build();
     }
 

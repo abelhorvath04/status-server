@@ -6,15 +6,15 @@ public class Status {
     private Long id;
     private String username;
     private String statustext;
-    private LocalDateTime uhrzeit;
+    private LocalDateTime timestamp;
 
     public Status() {}
 
-    public Status(Long id, String username, String statustext, LocalDateTime uhrzeit) {
+    public Status(Long id, String username, String statustext, LocalDateTime timestamp) {
         this.id = id;
         this.username = username;
         this.statustext = statustext;
-        this.uhrzeit = uhrzeit;
+        this.timestamp = timestamp;
     }
 
     public Long getId() {
@@ -41,11 +41,11 @@ public class Status {
         this.statustext = statustext;
     }
 
-    public LocalDateTime getUhrzeit() {
-        return uhrzeit;
+    public LocalDateTime getTimestamp() {
+        return timestamp;
     }
 
-    public void setUhrzeit(LocalDateTime uhrzeit) {
-        this.uhrzeit = uhrzeit;
+    public void setTimestamp(LocalDateTime timestamp) {
+        this.timestamp = timestamp;
     }
 }

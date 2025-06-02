@@ -1,44 +1,46 @@
-const ports = [9001, 9002];
-const stompClients = [];
+const gatewayPort = 9000;
+const gatewayWsUrl = `ws://${window.location.hostname}:${gatewayPort}/status-websocket`;
 
-function createStompClient(port) {
-    const client = new StompJs.Client({
-        brokerURL: `ws://localhost:${port}/status-websocket`,
+let stompClient = null;
+
+function createStompClient() {
+    stompClient = new StompJs.Client({
+        brokerURL: gatewayWsUrl,
         reconnectDelay: 5000,
         onConnect: (frame) => {
-            console.log(`Connected to port ${port}:`, frame);
-            client.subscribe('/topic/status', (message) => {
+            console.log(`Connected to API Gateway:`, frame);
+
+            stompClient.subscribe('/topic/status', (message) => {
                 const status = JSON.parse(message.body);
                 showStatus(status);
             });
 
-            client.publish({
+            stompClient.publish({
                 destination: "/app/request-statuses",
                 body: ""
             });
 
-            client.subscribe('/topic/init-status', (message) => {
+            stompClient.subscribe('/topic/init-status', (message) => {
                 const status = JSON.parse(message.body);
                 showStatus(status);
             });
 
-            client.subscribe('/topic/status-delete', (message) => {
+            stompClient.subscribe('/topic/status-delete', (message) => {
                 const id = Number(message.body);
                 $(`#status-${id}`).remove();
             });
             setConnected(true);
         },
         onStompError: (frame) => {
-            console.error(`Broker error on port ${port}: ${frame.headers['message']}`);
+            console.error(`Broker error: ${frame.headers['message']}`);
             console.error('Details:', frame.body);
         },
         onWebSocketError: (error) => {
-            console.error(`WebSocket error on port ${port}:`, error);
+            console.error(`WebSocket error:`, error);
         }
     });
 
-    stompClients.push(client);
-    return client;
+    stompClient.activate();
 }
 
 function setConnected(connected) {
@@ -53,17 +55,18 @@ function setConnected(connected) {
 }
 
 function connect() {
-    ports.forEach(port => {
-        const client = createStompClient(port);
-        client.activate();
-    });
+    if (!stompClient || !stompClient.connected) {
+        createStompClient();
+    }
 }
 
 function disconnect() {
-    stompClients.forEach(client => client.deactivate());
-    stompClients.length = 0;
-    setConnected(false);
-    console.log("disconnected from all ports");
+    if (stompClient && stompClient.active) {
+        stompClient.deactivate();
+        stompClient = null;
+        setConnected(false);
+        console.log("Disconnected");
+    }
 }
 
 function sendMsg() {
@@ -75,14 +78,14 @@ function sendMsg() {
         statusText: statustext
     };
 
-    stompClients.forEach(client => {
-        if (client.connected) {
-            client.publish({
-                destination: "/app/status",
-                body: JSON.stringify(request)
-            });
-        }
-    });
+    if (stompClient?.connected) {
+        stompClient.publish({
+            destination: "/app/status",
+            body: JSON.stringify(request)
+        });
+
+        console.log("[SEND] Sent status:", request);
+    }
 
     if (statustext === "UP") {
         $("#send-up").prop("disabled", true);
@@ -94,8 +97,8 @@ function sendMsg() {
 }
 
 function showStatus(status) {
-    const { id, username, statustext, uhrzeit } = status;
-    const formattedTime = new Date(uhrzeit).toLocaleString();
+    const { id, username, statustext, timestamp } = status;
+    const formattedTime = new Date(timestamp).toLocaleString();
     const entryId = `status-${id}`;
 
     let existing = $(`#${entryId}`);
@@ -120,11 +123,9 @@ function showStatus(status) {
 function sendStatus(statustext) {
     const username = $("#name").val();
     const request = { username, statusText: statustext };
-    
-    const primaryClient = stompClients[0];
 
-    if (primaryClient?.connected) {
-        primaryClient.publish({
+    if (stompClient?.connected) {
+        stompClient.publish({
             destination: "/app/status",
             body: JSON.stringify(request)
         });

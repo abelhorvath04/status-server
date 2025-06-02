@@ -16,6 +16,9 @@ services:
       context: ./api-gateway
     depends_on:
       - eureka-server
+    environment:
+      - API_GATEWAY_NAME=api-gateway
+      - EUREKA_SERVER_NAME=eureka-server
     ports:
       - "9000:9000"
     networks:
@@ -47,18 +50,7 @@ services:
       - STATUS_SERVICE_NAME=status-service
       - EUREKA_SERVER_NAME=eureka-server
     ports:
-      - "9001:9001"
-    networks:
-      - status-server-network
-
-  client:
-    image: client:latest
-    build:
-      context: ./client
-    depends_on:
-      - eureka-server
-    environment:
-      - EUREKA_SERVER_NAME=eureka-server
+      - "9002:9002"
     networks:
       - status-server-network
 

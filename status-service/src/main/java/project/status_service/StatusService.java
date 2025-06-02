@@ -59,4 +59,11 @@ public class StatusService {
     public Map<Long, Status> getStore() {
         return store;
     }
+
+    public Status findByUsername(String username) {
+        return store.values().stream()
+                .filter(s -> s.getUsername().equalsIgnoreCase(username))
+                .findFirst()
+                .orElse(null);
+    }
 }

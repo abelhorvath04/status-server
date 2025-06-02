@@ -18,6 +18,11 @@ spring:
           uri: lb://STATUS-SERVICE
           predicates:
             - Path=/status-websocket/**
+          filters:
+            - name: RewritePath
+              args:
+                regexp: "/status-websocket/(?<segment>.*)"
+                replacement: "/${segment}"
       globalcors:
         cors-configurations:
           '[/**]':
@@ -35,11 +40,11 @@ spring:
 
 eureka:
   instance:
-    hostname: api-gateway
+    hostname: ${API_GATEWAY_NAME:localhost}
     prefer-ip-address: false
   client:
     service-url:
-      defaultZone: http://eureka-server:8761/eureka
+      defaultZone: http://${EUREKA_SERVER_NAME:localhost}:8761/eureka
     register-with-eureka: true
     fetch-registry: true
 
