@@ -78,6 +78,7 @@ public class StatusController {
     public ResponseEntity<Void> replicate(@RequestBody Status status) {
         statusService.replicate(status);
         System.out.println("[REPLICATE] Received from peer: " + status.getUsername() + ", " + status.getStatustext() + ", " + status.getTimestamp());
+        ws.broadcastStatus(status);
         return ResponseEntity.ok().build();
     }
 

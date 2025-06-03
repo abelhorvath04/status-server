@@ -1,54 +1,35 @@
+---
 services:
   eureka-server:
-    image: eureka-server:latest
     build:
       context: ./eureka-server
     environment:
-      - EUREKA_SERVER_NAME=eureka-server
+      - "EUREKA_SERVER_NAME=eureka-server"
     ports:
       - "8761:8761"
     networks:
       - status-server-network
 
-  api-gateway:
-    image: api-gateway:latest
-    build:
-      context: ./api-gateway
-    depends_on:
-      - eureka-server
-    environment:
-      - API_GATEWAY_NAME=api-gateway
-      - EUREKA_SERVER_NAME=eureka-server
-    ports:
-      - "9000:9000"
-    networks:
-      - status-server-network
-
   status-service-1:
-    image: status-service:latest
     build:
       context: ./status-service
-    depends_on:
-      - eureka-server
     environment:
-      - SERVER_PORT=9001
-      - STATUS_SERVICE_NAME=status-service
-      - EUREKA_SERVER_NAME=eureka-server
+      - "SERVER_PORT=9001"
+      - "STATUS_SERVICE_NAME=status-service"
+      - "STATUS_SERVICE_NUMBER=1"
+      - "EUREKA_SERVER_NAME=eureka-server"
     ports:
       - "9001:9001"
     networks:
       - status-server-network
-
   status-service-2:
-    image: status-service:latest
     build:
       context: ./status-service
-    depends_on:
-      - eureka-server
     environment:
-      - SERVER_PORT=9002
-      - STATUS_SERVICE_NAME=status-service
-      - EUREKA_SERVER_NAME=eureka-server
+      - "SERVER_PORT=9002"
+      - "STATUS_SERVICE_NAME=status-service"
+      - "STATUS_SERVICE_NUMBER=2"
+      - "EUREKA_SERVER_NAME=eureka-server"
     ports:
       - "9002:9002"
     networks:
@@ -58,11 +39,9 @@ services:
     build:
       context: ./frontend
     ports:
-      - "4200:80"
+      - "3000:3000"
     networks:
       - status-server-network
-    depends_on:
-      - api-gateway
 
 networks:
   status-server-network:
