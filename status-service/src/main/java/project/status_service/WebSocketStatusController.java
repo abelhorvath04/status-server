@@ -5,11 +5,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
@@ -38,7 +41,35 @@ public class WebSocketStatusController {
     public void handleStatus(StatusRequest req, SimpMessageHeaderAccessor accessor) {
         // Store the session ID and username in a map for later use
         String sessionId = accessor.getSessionId();
-        sessionUserMap.put(sessionId, req.getUsername());
+        String username = req.getUsername();
+
+        String existingSession = getSessionIdForUsername(username);
+        // Block if the username is already connected from a different session
+        if (existingSession != null && !existingSession.equals(sessionId)) {
+            System.out.printf("[BLOCKED] Username '%s' already connected on this server from another session%n", username);
+            messagingTemplate.convertAndSendToUser(sessionId, "/queue/errors", "Username already in use.");
+            return;
+        }
+
+        // Check all peer servers (excluding current) if the username is already active, block if found
+        for (String peer : statusProperties.getPeers()) {
+            if (peer.contains(currentPort)) continue;
+
+            try {
+                String url = peer + "/status/username-active?username=" + username;
+                Boolean isActive = new RestTemplate().getForObject(url, Boolean.class);
+                if (Boolean.TRUE.equals(isActive)) {
+                    System.out.printf("[BLOCKED] Username '%s' already active on peer %s%n", username, peer);
+                    messagingTemplate.convertAndSendToUser(sessionId, "/queue/errors", "Username already in use on another server.");
+                    return;
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to check peer " + peer + ": " + e.getMessage());
+            }
+        }
+
+        sessionUserMap.putIfAbsent(sessionId, username);
+
         System.out.printf("[WS RECEIVE] %s -> '%s' from session %s%n",
                 req.getUsername(), req.getStatusText(), sessionId);
 
@@ -122,5 +153,20 @@ public class WebSocketStatusController {
             // Broadcast deletion to other clients
             broadcastDelete(status.getId());
         }
+    }
+
+    // Checks if client with that username already exists
+    @GetMapping("/status/username-active")
+    public ResponseEntity<Boolean> isUsernameActive(@RequestParam String username) {
+        return ResponseEntity.ok(sessionUserMap.containsValue(username));
+    }
+
+    // Returns the session ID for the given username if connected, otherwise null
+    private String getSessionIdForUsername(String username) {
+        return sessionUserMap.entrySet().stream()
+                .filter(entry -> username.equals(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(null);
     }
 }

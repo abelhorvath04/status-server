@@ -67,8 +67,26 @@ export default function StatusServerApp() {
         }
     }, [])
 
-    const connectToServer = () => {
+    const isUsernameTakenGlobally = async (name: string) => {
+        for (const server of servers) {
+            try {
+                const res = await fetch(`http://localhost:${server.port}/status/username-active?username=${encodeURIComponent(name)}`);
+                const isActive = await res.json();
+                if (isActive) return true;
+            } catch (err) {
+                console.warn(`Could not check server ${server.port}:`, err);
+            }
+        }
+        return false;
+    };
+
+    const connectToServer = async () => {
         if (!username.trim() || !window.StompJs) return
+
+        const taken = await isUsernameTakenGlobally(username);
+        if (taken) {
+            return;
+        }
 
         try {
             const gatewayWsUrl = `ws://localhost:${selectedServer.port}/status-websocket-${selectedServer.port}`
@@ -77,6 +95,7 @@ export default function StatusServerApp() {
                 brokerURL: gatewayWsUrl,
                 reconnectDelay: 5000,
                 onConnect: (frame: any) => {
+                    setIsUsernameInUse(false);
                     console.log(`Connected to port ${selectedServer.port}:`, frame)
                     setIsConnected(true)
                     setConnectedUsername(username)
@@ -97,6 +116,12 @@ export default function StatusServerApp() {
                     stompClientRef.current.subscribe("/topic/status-delete", (message: any) => {
                         const id = Number(message.body)
                         setStatuses((prev) => prev.filter((s) => s.id !== id))
+                    })
+
+                    // Subscribe to status errors
+                    stompClientRef.current.subscribe("/user/queue/errors", (message: any) => {
+                        alert("Error: " + message.body)
+                        disconnectFromServer()
                     })
 
                     // Request existing statuses
@@ -206,6 +231,8 @@ export default function StatusServerApp() {
             }
         }
     }
+
+    const [isUsernameInUse, setIsUsernameInUse] = useState(false)
 
     return (
         <SidebarProvider>
@@ -346,11 +373,31 @@ export default function StatusServerApp() {
                                             id="username"
                                             placeholder="Enter your username"
                                             value={username}
-                                            onChange={(e) => setUsername(e.target.value)}
+                                            onChange={async (e) => {
+                                                const newUsername = e.target.value
+                                                setUsername(newUsername)
+
+                                                if (newUsername.trim()) {
+                                                try {
+                                                    const taken = await isUsernameTakenGlobally(newUsername)
+                                                    setIsUsernameInUse(taken)
+                                                } catch (err) {
+                                                    console.error("Username check failed:", err)
+                                                    setIsUsernameInUse(false)
+                                                }
+                                                } else {
+                                                setIsUsernameInUse(false)
+                                                }
+                                            }}
                                             onKeyDown={handleKeyPress}
                                         />
+                                        {isUsernameInUse && (
+                                            <div className="text-sm text-red-600 bg-red-100 p-2 rounded">
+                                                This username is already connected on this or another server.
+                                            </div>
+                                        )}
                                     </div>
-                                    <Button onClick={connectToServer} disabled={!username.trim()} className="w-full">
+                                    <Button onClick={connectToServer} disabled={!username.trim() || isUsernameInUse} className="w-full">
                                         <LogIn className="h-4 w-4 mr-2" />
                                         Connect to {selectedServer.name}
                                     </Button>
@@ -411,7 +458,7 @@ export default function StatusServerApp() {
                                                     setCustomStatus("");
                                                 }
                                             }}
-                                            disabled={!customStatus.trim()}
+                                            disabled={!customStatus.trim() || !connectedUsername}
                                         >
                                             Send
                                         </Button>
