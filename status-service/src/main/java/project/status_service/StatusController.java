@@ -86,6 +86,7 @@ public class StatusController {
     public ResponseEntity<Void> replicateDelete(@PathVariable Long id) {
         statusService.replicateDelete(id);
         System.out.println("[REPLICATE DELETE] ID: " + id + " removed via peer");
+        ws.broadcastDelete(id);
         return ResponseEntity.ok().build();
     }
 

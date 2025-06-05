@@ -36,7 +36,7 @@ declare global {
 interface StatusMessage {
     id: number
     username: string
-    statustext: "UP" | "DOWN"
+    statustext: string
     timestamp: string
 }
 
@@ -51,7 +51,8 @@ export default function StatusServerApp() {
     const [statuses, setStatuses] = useState<StatusMessage[]>([])
     const [username, setUsername] = useState("")
     const [connectedUsername, setConnectedUsername] = useState("")
-    const [currentUserStatus, setCurrentUserStatus] = useState<"UP" | "DOWN" | null>(null)
+    const [customStatus, setCustomStatus] = useState("")
+    const [currentUserStatus, setCurrentUserStatus] = useState<string>()
     const stompClientRef = useRef<any>(null)
 
     // Load STOMP.js script
@@ -103,6 +104,21 @@ export default function StatusServerApp() {
                         destination: "/app/request-statuses",
                         body: "",
                     })
+
+                    // Send initial "Connected" status (after delay to ensure that subscriptions are ready)
+                    setTimeout(() => {
+                        const request = {
+                            username: username,
+                            statusText: "Connected",
+                        }
+
+                        stompClientRef.current.publish({
+                            destination: "/app/status",
+                            body: JSON.stringify(request),
+                        })
+
+                        console.log("[SEND] Initial connected status:", request)
+                    }, 500)
                 },
                 onStompError: (frame: any) => {
                     console.error(`Broker error: ${frame.headers["message"]}`)
@@ -131,7 +147,7 @@ export default function StatusServerApp() {
             stompClientRef.current = null
             setIsConnected(false)
             setConnectedUsername("")
-            setCurrentUserStatus(null)
+            setCurrentUserStatus(undefined)
             setStatuses([])
             console.log("Disconnected")
         }
@@ -157,7 +173,7 @@ export default function StatusServerApp() {
         }
     }
 
-    const sendStatus = (statusText: "UP" | "DOWN") => {
+    const sendStatus = (statusText: string) => {
         if (!stompClientRef.current?.connected || !connectedUsername) return
 
         const request = {
@@ -267,7 +283,7 @@ export default function StatusServerApp() {
                                     {currentUserStatus && (
                                         <div className="text-xs text-muted-foreground mt-1">
                                             Your status:{" "}
-                                            <Badge variant={currentUserStatus === "UP" ? "default" : "destructive"} className="text-xs">
+                                            <Badge variant={currentUserStatus === "DOWN" ? "destructive" : "default"} className="text-xs">
                                                 {currentUserStatus}
                                             </Badge>
                                         </div>
@@ -331,7 +347,7 @@ export default function StatusServerApp() {
                                             placeholder="Enter your username"
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
-                                            onKeyPress={handleKeyPress}
+                                            onKeyDown={handleKeyPress}
                                         />
                                     </div>
                                     <Button onClick={connectToServer} disabled={!username.trim()} className="w-full">
@@ -372,6 +388,34 @@ export default function StatusServerApp() {
                                             Set DOWN
                                         </Button>
                                     </div>
+
+                                    {/* Custom Status Input */}
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="Enter custom status..."
+                                            value={customStatus}
+                                            onChange={(e) => setCustomStatus(e.target.value)}
+                                            className="flex-1"
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" && customStatus.trim()) {
+                                                    e.preventDefault();
+                                                    sendStatus(customStatus.trim());
+                                                    setCustomStatus("");
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            onClick={() => {
+                                                if (customStatus.trim()) {
+                                                    sendStatus(customStatus.trim());
+                                                    setCustomStatus("");
+                                                }
+                                            }}
+                                            disabled={!customStatus.trim()}
+                                        >
+                                            Send
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
                         </CardContent>
@@ -406,7 +450,12 @@ export default function StatusServerApp() {
                                                     <div className="flex items-center gap-2">
                                                         <span className="font-medium text-sm">{statusMsg.username}</span>
                                                         <Badge
-                                                            variant={statusMsg.statustext === "UP" ? "default" : "destructive"}
+                                                            variant={
+                                                                statusMsg.statustext === "DOWN" ? "destructive" :
+                                                                    statusMsg.statustext === "Offline" ? "destructive" :
+                                                                        statusMsg.statustext === "Connected" ? "secondary" :
+                                                                            "default"
+                                                            }
                                                             className="text-xs"
                                                         >
                                                             {statusMsg.statustext}
