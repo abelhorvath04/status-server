@@ -106,7 +106,15 @@ interface StatusMessage {
     cd ../status-service
     .\mvn clean package
     ```
-2. Run application with Docker:
+2. Build React project:
+    ```bash
+    # Build Eureka Server
+    cd ../frontend
+    npm install
+    npm run build
+    ```
+
+3. Run application with Docker:
     ```
     docker compose up --build
     ```
