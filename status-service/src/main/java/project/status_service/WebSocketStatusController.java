@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
+import org.springframework.scheduling.annotation.Scheduled;
+import javax.annotation.PostConstruct;
 
 @Controller
 public class WebSocketStatusController {
@@ -26,6 +28,8 @@ public class WebSocketStatusController {
     private final StatusProperties statusProperties;
 
     private final Map<String, String> sessionUserMap = new ConcurrentHashMap<>();
+
+    private final Map<String, Long> lastSeenMap = new ConcurrentHashMap<>();
 
     @Value("${server.port}")
     private String currentPort;
@@ -69,6 +73,7 @@ public class WebSocketStatusController {
         }
 
         sessionUserMap.putIfAbsent(sessionId, username);
+        lastSeenMap.put(username, System.currentTimeMillis());
 
         System.out.printf("[WS RECEIVE] %s -> '%s' from session %s%n",
                 req.getUsername(), req.getStatusText(), sessionId);
@@ -125,33 +130,9 @@ public class WebSocketStatusController {
         System.out.println("[WS] Client disconnected with session ID: " + sessionId);
 
         String username = sessionUserMap.remove(sessionId);
+
         if (username != null) {
-            handleUserDisconnect(username);
-        }
-    }
-
-    private void handleUserDisconnect(String username) {
-        Status status = statusService.findByUsername(username);
-        if (status != null) {
-            System.out.printf("[WS DISCONNECT] Removing status for user: %s%n", username);
-
-            // Delete the status
-            statusService.delete(status.getId());
-
-            // Notify peers
-            statusProperties.getPeers().forEach(peer -> {
-                if (!peer.contains(currentPort)) {
-                    try {
-                        new RestTemplate().delete(peer + "/status/replicate/" + status.getId());
-                        System.out.println("[WS DISCONNECT -> PEER] Replicated delete to " + peer);
-                    } catch (Exception e) {
-                        System.err.println("Failed to replicate delete to peer " + peer + ": " + e.getMessage());
-                    }
-                }
-            });
-
-            // Broadcast deletion to other clients
-            broadcastDelete(status.getId());
+            System.out.printf("[WS DISCONNECT] User '%s' disconnected — keeping status%n", username);
         }
     }
 
@@ -168,5 +149,59 @@ public class WebSocketStatusController {
                 .map(Map.Entry::getKey)
                 .findFirst()
                 .orElse(null);
+    }
+    @MessageMapping("/delete-status")
+    public void handleStatusDelete(String username, SimpMessageHeaderAccessor accessor) {
+        System.out.printf("[WS DELETE] User '%s' requested status deletion%n", username);
+
+        Status status = statusService.findByUsername(username);
+        if (status != null) {
+            statusService.delete(status.getId());
+            broadcastDelete(status.getId());
+
+            statusProperties.getPeers().forEach(peer -> {
+                if (!peer.contains(currentPort)) {
+                    try {
+                        new RestTemplate().delete(peer + "/status/replicate/" + status.getId());
+                    } catch (Exception e) {
+                        System.err.println("Failed to replicate delete: " + e.getMessage());
+                    }
+                }
+            });
+        }
+    }
+
+    @PostConstruct
+    public void init() {
+        System.out.println("[INIT] Inactivity cleaner scheduled");
+    }
+
+    @Scheduled(fixedRate = 5000) // 5 sec
+    public void cleanupInactiveStatuses() {
+        long now = System.currentTimeMillis();
+        long timeout = 120 * 1000; // 120 sec
+
+        lastSeenMap.forEach((username, lastSeen) -> {
+            if (now - lastSeen > timeout) {
+                Status status = statusService.findByUsername(username);
+                if (status != null) {
+                    System.out.printf("[CLEANUP] Removing inactive user: %s%n", username);
+                    statusService.delete(status.getId());
+                    broadcastDelete(status.getId());
+
+                    statusProperties.getPeers().forEach(peer -> {
+                        if (!peer.contains(currentPort)) {
+                            try {
+                                new RestTemplate().delete(peer + "/status/replicate/" + status.getId());
+                            } catch (Exception e) {
+                                System.err.println("Failed to replicate delete: " + e.getMessage());
+                            }
+                        }
+                    });
+
+                    lastSeenMap.remove(username);
+                }
+            }
+        });
     }
 }

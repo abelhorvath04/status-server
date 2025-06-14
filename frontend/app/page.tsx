@@ -167,6 +167,13 @@ export default function StatusServerApp() {
     }
 
     const disconnectFromServer = () => {
+        if (stompClientRef.current && stompClientRef.current.connected && connectedUsername) {
+            stompClientRef.current.publish({
+                destination: "/app/delete-status",
+                body: connectedUsername,
+            });
+        }
+
         if (stompClientRef.current && stompClientRef.current.active) {
             stompClientRef.current.deactivate()
             stompClientRef.current = null
@@ -378,15 +385,15 @@ export default function StatusServerApp() {
                                                 setUsername(newUsername)
 
                                                 if (newUsername.trim()) {
-                                                try {
-                                                    const taken = await isUsernameTakenGlobally(newUsername)
-                                                    setIsUsernameInUse(taken)
-                                                } catch (err) {
-                                                    console.error("Username check failed:", err)
-                                                    setIsUsernameInUse(false)
-                                                }
+                                                    try {
+                                                        const taken = await isUsernameTakenGlobally(newUsername)
+                                                        setIsUsernameInUse(taken)
+                                                    } catch (err) {
+                                                        console.error("Username check failed:", err)
+                                                        setIsUsernameInUse(false)
+                                                    }
                                                 } else {
-                                                setIsUsernameInUse(false)
+                                                    setIsUsernameInUse(false)
                                                 }
                                             }}
                                             onKeyDown={handleKeyPress}
