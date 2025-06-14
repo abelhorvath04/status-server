@@ -24,11 +24,8 @@ public class WebSocketStatusController {
 
     private final SimpMessagingTemplate messagingTemplate;
     private final StatusService statusService;
-
     private final StatusProperties statusProperties;
-
     private final Map<String, String> sessionUserMap = new ConcurrentHashMap<>();
-
     private final Map<String, Long> lastSeenMap = new ConcurrentHashMap<>();
 
     @Value("${server.port}")
@@ -179,7 +176,7 @@ public class WebSocketStatusController {
     @Scheduled(fixedRate = 5000) // 5 sec
     public void cleanupInactiveStatuses() {
         long now = System.currentTimeMillis();
-        long timeout = 120 * 1000; // 120 sec
+        long timeout = 300 * 1000; // 5 min
 
         lastSeenMap.forEach((username, lastSeen) -> {
             if (now - lastSeen > timeout) {
