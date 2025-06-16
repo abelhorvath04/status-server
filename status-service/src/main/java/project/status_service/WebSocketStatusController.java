@@ -206,6 +206,17 @@ public class WebSocketStatusController {
         });
     }
 
+    @MessageMapping("/disconnect")
+    public void handleManualDisconnect(StatusRequest req, SimpMessageHeaderAccessor accessor) {
+        String sessionId = accessor.getSessionId();
+        String username = req.getUsername();
+
+        System.out.printf("[MANUAL DISCONNECT] User %s manually disconnected%n", username);
+        sessionUserMap.remove(sessionId);
+        lastSeenMap.remove(username);
+        handleUserDisconnect(username);
+    }
+
     private void handleUserDisconnect(String username) {
         Status status = statusService.findByUsername(username);
         if (status != null) {

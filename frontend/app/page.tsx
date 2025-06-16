@@ -190,7 +190,12 @@ export default function StatusServerApp() {
     }
 
     const disconnectFromServer = () => {
-        if (stompClientRef.current && stompClientRef.current.active) {
+        if (stompClientRef.current && stompClientRef.current.connected && connectedUsername) {
+            stompClientRef.current.publish({
+                destination: "/app/disconnect",
+                body: JSON.stringify({ username: connectedUsername }),
+            })
+        }
             stompClientRef.current.deactivate()
             stompClientRef.current = null
             setIsConnected(false)
@@ -198,7 +203,6 @@ export default function StatusServerApp() {
             setCurrentUserStatus(undefined)
             setStatuses([])
             console.log("Disconnected")
-        }
     }
 
     const updateStatus = (status: StatusMessage) => {
