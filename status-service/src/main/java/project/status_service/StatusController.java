@@ -4,10 +4,13 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/status")
@@ -16,11 +19,13 @@ public class StatusController {
     private WebSocketStatusController ws;
     private StatusProperties statusProperties;
     private StatusService statusService;
+    private final Map<String, List<Status>> replicationErrorQueue = new ConcurrentHashMap<>();
 
     @Value("${server.port}")
     private String currentPort;
 
-    public StatusController(WebSocketStatusController ws, StatusProperties statusProperties, StatusService statusService) {
+    public StatusController(WebSocketStatusController ws, StatusProperties statusProperties,
+            StatusService statusService) {
         this.ws = ws;
         this.statusProperties = statusProperties;
         this.statusService = statusService;
@@ -29,7 +34,8 @@ public class StatusController {
     @PostMapping
     public ResponseEntity<Void> create(@RequestBody StatusRequest statusRequest) {
         Status status = statusService.saveOrUpdate(statusRequest);
-        System.out.println("[CREATE] Received via REST: " + status.getUsername() + ", " + status.getStatustext() + ", " + status.getTimestamp());
+        System.out.println("[CREATE] Received via REST: " + status.getUsername() + ", " + status.getStatustext() + ", "
+                + status.getTimestamp());
         replicateToPeers(status);
         ws.broadcastStatus(status);
         return ResponseEntity.status(HttpStatus.CREATED).build();
@@ -77,7 +83,8 @@ public class StatusController {
     @PostMapping("/replicate")
     public ResponseEntity<Void> replicate(@RequestBody Status status) {
         statusService.replicate(status);
-        System.out.println("[REPLICATE] Received from peer: " + status.getUsername() + ", " + status.getStatustext() + ", " + status.getTimestamp());
+        System.out.println("[REPLICATE] Received from peer: " + status.getUsername() + ", " + status.getStatustext()
+                + ", " + status.getTimestamp());
         ws.broadcastStatus(status);
         return ResponseEntity.ok().build();
     }
@@ -101,18 +108,43 @@ public class StatusController {
                 new RestTemplate().postForObject(peer + "/status/replicate", status, Void.class);
             } catch (Exception e) {
                 System.err.println("Failed to replicate to " + peer + ": " + e.getMessage());
+                // Store the status in the error queue for later retry
+                replicationErrorQueue.putIfAbsent(peer, new java.util.ArrayList<>());
+                System.err.println("Storing status in error queue for " + peer);
+                List<Status> peerQueue = replicationErrorQueue.get(peer);
+                if (!peerQueue.contains(status)) {
+                    peerQueue.add(status);
+                }
+                replicationErrorQueue.put(peer, peerQueue);
+                // Print the list of statuses that failed to replicate
+                for (Status s : peerQueue) {
+                    System.err.println("Replication error queue for " + peer + ": " + s.getUsername().toString());
+                }
             }
         }
     }
 
     private void sendDeleteToPeers(Long id) {
+        Status status = statusService.get(id);
         for (String peer : statusProperties.getPeers()) {
             try {
-                if (peer.contains(currentPort)) continue;
+                if (peer.contains(currentPort))
+                    continue;
                 System.out.println("Replicating DELETE to " + peer);
                 new RestTemplate().delete(peer + "/status/replicate/" + id);
             } catch (Exception e) {
                 System.err.println("Failed to replicate DELETE to " + peer + ": " + e.getMessage());
+                // Store the status in the error queue for later retry if it doesn't exist
+                // already
+                replicationErrorQueue.putIfAbsent(peer, new java.util.ArrayList<>());
+                List<Status> peerQueue = replicationErrorQueue.get(peer);
+                if (!peerQueue.contains(status)) {
+                    peerQueue.add(status);
+                }
+                replicationErrorQueue.put(peer, peerQueue);
+                // Print the list of statuses that failed to replicate
+                System.err.println(
+                        "Replication error queue for " + peer + ": " + replicationErrorQueue.get(peer).toString());
             }
         }
     }
@@ -133,7 +165,33 @@ public class StatusController {
                     }
                     break;
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
+    }
+
+    @PostConstruct
+    public void init() {
+        System.out.println("[INIT] Replication refresher scheduled");
+    }
+
+    @Scheduled(fixedRate = 30000) // 30 seconds
+    public void CheckForReplicationErrors() {
+        replicationErrorQueue.forEach((peer, statuses) -> {
+            boolean success = true;
+            for (Status status : statuses) {
+                try {
+                    new RestTemplate().postForObject(peer + "/status/replicate", status, Void.class);
+                    System.out.println("[RETRY] Successfully replicated to " + peer + ": " + status.getUsername());
+                    // Clear the queue after successful replication
+                } catch (Exception e) {
+                    System.err.println("[RETRY FAILED] Could not replicate to " + peer + ": " + e.getMessage());
+                    success = false;
+                }
+            }
+            if (success) {
+                replicationErrorQueue.remove(peer);
+            }
+        });
     }
 }

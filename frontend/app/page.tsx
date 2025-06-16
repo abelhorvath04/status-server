@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { Server, Users, Wifi, WifiOff, LogIn, LogOut, ArrowUp, ArrowDown } from "lucide-react"
+import { Server, Users, Wifi, WifiOff, LogIn, LogOut, ArrowUp, ArrowDown, Loader2Icon  } from "lucide-react"
 import {
     Sidebar,
     SidebarContent,
@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { toast } from "sonner"
 
 // Add STOMP.js types
 declare global {
@@ -53,6 +54,7 @@ export default function StatusServerApp() {
     const [connectedUsername, setConnectedUsername] = useState("")
     const [customStatus, setCustomStatus] = useState("")
     const [currentUserStatus, setCurrentUserStatus] = useState<string>()
+    const [isConnectionLoading, setIsConnectionLoading] = useState(false)
     const stompClientRef = useRef<any>(null)
 
     // Load STOMP.js script
@@ -81,12 +83,14 @@ export default function StatusServerApp() {
     };
 
     const connectToServer = async () => {
+        setIsConnectionLoading(true)
         if (!username.trim() || !window.StompJs) return
 
         const taken = await isUsernameTakenGlobally(username);
         if (taken) {
             return;
         }
+
 
         try {
             const gatewayWsUrl = `ws://localhost:${selectedServer.port}/status-websocket-${selectedServer.port}`
@@ -144,6 +148,7 @@ export default function StatusServerApp() {
 
                         console.log("[SEND] Initial connected status:", request)
                     }, 500)
+                    setIsConnectionLoading(false)
                 },
                 onStompError: (frame: any) => {
                     console.error(`Broker error: ${frame.headers["message"]}`)
@@ -153,15 +158,33 @@ export default function StatusServerApp() {
                 },
                 onWebSocketError: (error: any) => {
                     console.error(`WebSocket error:`, error)
+                    toast.error("Failed to connect to the server", {
+                        description: "It appears the server is down. Please try again later.",
+                        action: {
+                            label: "Undo",
+                            onClick: () => setUsername(""),
+                        }
+                    })
                     setIsConnected(false)
+                    setIsConnectionLoading(false)
+                    setUsername("")
                     setConnectedUsername("")
+                    stompClientRef.current.deactivate()
                 },
             })
 
             stompClientRef.current.activate()
         } catch (error) {
             console.error("Failed to connect:", error)
+            toast.error("Failed to connect to the server", {
+                description: "It appears the server is down. Please try again later.",
+                action: {
+                    label: "Undo",
+                    onClick: () => setUsername(""),
+                }
+            })
             setIsConnected(false)
+            setIsConnectionLoading(false)
             setConnectedUsername("")
         }
     }
@@ -378,15 +401,15 @@ export default function StatusServerApp() {
                                                 setUsername(newUsername)
 
                                                 if (newUsername.trim()) {
-                                                try {
-                                                    const taken = await isUsernameTakenGlobally(newUsername)
-                                                    setIsUsernameInUse(taken)
-                                                } catch (err) {
-                                                    console.error("Username check failed:", err)
-                                                    setIsUsernameInUse(false)
-                                                }
+                                                    try {
+                                                        const taken = await isUsernameTakenGlobally(newUsername)
+                                                        setIsUsernameInUse(taken)
+                                                    } catch (err) {
+                                                        console.error("Username check failed:", err)
+                                                        setIsUsernameInUse(false)
+                                                    }
                                                 } else {
-                                                setIsUsernameInUse(false)
+                                                    setIsUsernameInUse(false)
                                                 }
                                             }}
                                             onKeyDown={handleKeyPress}
@@ -398,8 +421,16 @@ export default function StatusServerApp() {
                                         )}
                                     </div>
                                     <Button onClick={connectToServer} disabled={!username.trim() || isUsernameInUse} className="w-full">
-                                        <LogIn className="h-4 w-4 mr-2" />
-                                        Connect to {selectedServer.name}
+                                        {isConnectionLoading ? (
+                                            <span className="animate-spin">
+                                                <Loader2Icon  className="h-4 w-4" />
+                                            </span>
+                                        ) : (
+                                            <>
+                                                <LogIn className="h-4 w-4 mr-2" />
+                                                Connect to {selectedServer.name}
+                                            </>
+                                        )}
                                     </Button>
                                 </div>
                             ) : (
@@ -499,7 +530,7 @@ export default function StatusServerApp() {
                                                         <Badge
                                                             variant={
                                                                 statusMsg.statustext === "DOWN" ? "destructive" :
-                                                                    statusMsg.statustext === "Offline" ? "destructive" :
+                                                                    statusMsg.statustext === "Inactive" ? "secondary" :
                                                                         statusMsg.statustext === "Connected" ? "secondary" :
                                                                             "default"
                                                             }
