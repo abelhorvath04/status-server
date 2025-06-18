@@ -45,9 +45,11 @@ The frontend implements a real-time status dashboard that allows users to:
 
 Connect to different server instances (ports 9001, 9002)
 Send status updates:
-Predefined statuses (UP, DOWN)
-Custom status messages
-View real-time status updates from all connected users
+- Predefined statuses (UP, DOWN)
+- Custom status messages
+- View real-time status updates from all connected users
+
+The status server has also a custom inactivity scheduler defined. Meaning after 2 minutes a user automatically receives an “Inactive” status. In addition to inactivity, the server also sweeps all users that are inactive more than 5 minutes. This ensures a clean and active user experience.
 
 ```typescript
 // WebSocket connection setup
@@ -140,3 +142,6 @@ When a status is created or updated, the service broadcasts the message to all p
 - Local State Update: Upon receiving the message, peers process it and update their local state
 
 ![Status Replication Flow](./docs/Replication-Sequence.png)
+
+**Replication Error Queue**:
+When the replication Call does not end successfully, the broadcasting node stores the information inside Hashmap List and checks every 30 seconds whether the missing replication can go through or not. This ensures that each node receives all informations, even if packets get lost or connections have troubles.
